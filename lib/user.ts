@@ -1,7 +1,7 @@
 import prisma from './prisma'
 import bcrypt from 'bcryptjs'
 
-interface UserWithoutPassword {
+export interface UserWithoutPassword {
   id: string
   name: string
   email: string
