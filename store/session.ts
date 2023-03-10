@@ -1,5 +1,7 @@
+import { Payload } from '@prisma/client/runtime'
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit'
-import type { RootState } from './index'
+
+// import type { RootState } from './index'
 
 interface User {
   id: string
@@ -9,10 +11,19 @@ interface User {
   updatedAt: Date
 }
 
-const initialState: User | {} = {}
+interface UserState {
+  user: User | null,
+  status: 'idle' | 'loading' | 'succeeded' | 'failed'
+}
 
-const authUser = createAsyncThunk<User, >(
-  'session/authUser',
+const isError = (payload: User | {message: string}): payload is {message: string} => {
+  return (payload as {message: string}).message !== undefined
+}
+
+const initialState: UserState = { user: null, status: 'idle' }
+
+const authUser = createAsyncThunk(
+  'session/login',
   async ({email, password}: {email: string, password: string}, { rejectWithValue }) => {
     const options = {
       method: 'POST',
@@ -24,20 +35,30 @@ const authUser = createAsyncThunk<User, >(
       const response = await fetch('/api/auth', options)
       const data = await response.json()
 
-      return data
-    }catch(err){
+      return response.ok ? data : rejectWithValue(data)
+    }catch(err: unknown){
       return rejectWithValue(err)
     }
   }
 )
 
-export const userSlice = createSlice({
-  name: 'user',
+export const sessionSlice = createSlice({
+  name: 'session',
   initialState,
-  reducers: {},
-  extraReducers: builder => {
-    builder.addCase(authUser.fulfilled, (state: UserState, action: PayloadAction<UserState>) => {
-      state = action.payload
-    })
+  reducers: {
+    logout: (state: UserState) => {state.user = null}
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(authUser.pending, (state, action) => {
+        state.status = 'loading'
+      })
+      .addCase(authUser.fulfilled, (state: UserState, action) => {
+        state.status = 'succeeded'
+        state.user = action.payload
+      })
   }
 })
+
+export const { logout } = sessionSlice.actions
+export default sessionSlice.reducer
