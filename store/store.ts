@@ -1,8 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { userSlice } from './session'
+import sessionReducer from './session'
 
 const store = configureStore({
   reducer: {
-    user: userSlice.reducer
-  }
+    session: sessionReducer
+  },
+  devTools: process.env.NODE_ENV !== 'production'
 })
+
+export type RootState = ReturnType<typeof store.getState>
+export type AppDispatch = typeof store.dispatch
+export default store

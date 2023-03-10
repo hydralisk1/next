@@ -1,9 +1,9 @@
 import { serialize, CookieSerializeOptions } from 'cookie'
-import { NextApiResponse } from 'next'
-import jwt from 'jsonwebtoken'
-import { UserWithoutPassword } from '@/lib/user'
+import { NextApiResponse, NextApiRequest } from 'next'
+import jwt, {JwtPayload } from 'jsonwebtoken'
+import { User } from '@/store/session'
 
-export function setTokenCookie(res: NextApiResponse, user: UserWithoutPassword) {
+export function setTokenCookie(res: NextApiResponse, user: User) {
   const secret: string = process.env.JWT_SECRET as string
   const expiresIn: number = parseInt(process.env.JWT_EXPIRES_IN as string)
 
@@ -38,4 +38,16 @@ export function clearToken(res: NextApiResponse) {
   }
 
   res.setHeader('Set-Cookie', serialize('token', '', options))
+}
+
+export function getUserId(req: NextApiRequest) {
+  const secret: string = process.env.JWT_SECRET as string
+  const token: string = req.cookies.token as string
+
+  try{
+    const { data } = jwt.verify(token, secret) as JwtPayload
+    return data.id
+  }catch(e) {
+    return null
+  }
 }

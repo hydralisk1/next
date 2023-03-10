@@ -1,9 +1,6 @@
-import { Payload } from '@prisma/client/runtime'
-import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
-// import type { RootState } from './index'
-
-interface User {
+export interface User {
   id: string
   name: string
   email: string
@@ -11,20 +8,22 @@ interface User {
   updatedAt: Date
 }
 
-interface UserState {
+export interface UserState {
   user: User | null,
-  status: 'idle' | 'loading' | 'succeeded' | 'failed'
+  status: 'idle' | 'loading' | 'succeeded' | 'failed',
+  error: string | null
 }
 
-const isError = (payload: User | {message: string}): payload is {message: string} => {
-  return (payload as {message: string}).message !== undefined
-}
+const initialState: UserState = { user: null, status: 'idle', error: null }
 
-const initialState: UserState = { user: null, status: 'idle' }
-
-const authUser = createAsyncThunk(
+export const authUser = createAsyncThunk<
+  User,
+  {email: string, password: string},
+  { rejectValue: {message: string} }
+>
+(
   'session/login',
-  async ({email, password}: {email: string, password: string}, { rejectWithValue }) => {
+  async ({email, password}, { rejectWithValue }) => {
     const options = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -37,25 +36,69 @@ const authUser = createAsyncThunk(
 
       return response.ok ? data : rejectWithValue(data)
     }catch(err: unknown){
-      return rejectWithValue(err)
+      return rejectWithValue({ message: 'Something went wrong' })
     }
   }
 )
+
+export const restoreUser = createAsyncThunk<
+  User,
+  string,
+  { rejectValue: {message: string} }
+>(
+  'session/restore',
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await fetch('/api/auth')
+      const user = await response.json()
+
+      return response.ok ? user : rejectWithValue(user)
+    }catch(err: unknown){
+      return rejectWithValue({ message: 'Something went wrong' })
+    }
+  }
+)
+
 
 export const sessionSlice = createSlice({
   name: 'session',
   initialState,
   reducers: {
-    logout: (state: UserState) => {state.user = null}
+    logout: (state: UserState) => {
+      state.user = null
+      state.status = 'idle'
+      state.error = null
+    }
   },
   extraReducers: (builder) => {
     builder
-      .addCase(authUser.pending, (state, action) => {
+      .addCase(authUser.pending, (state) => {
         state.status = 'loading'
       })
       .addCase(authUser.fulfilled, (state: UserState, action) => {
         state.status = 'succeeded'
         state.user = action.payload
+        state.error = null
+      })
+      .addCase(authUser.rejected, (state: UserState, action) => {
+        state.status = 'failed'
+        state.user = null
+        if(action.payload) state.error = action.payload.message
+      })
+
+    builder
+      .addCase(restoreUser.pending, (state: UserState) => {
+        state.status = 'loading'
+      })
+      .addCase(restoreUser.fulfilled, (state: UserState, action) => {
+        state.status = 'succeeded'
+        state.user = action.payload
+        state.error = null
+      })
+      .addCase(restoreUser.rejected, (state: UserState, action) => {
+        state.status = 'failed'
+        state.user = null
+        if(action.payload) state.error = action.payload.message
       })
   }
 })
