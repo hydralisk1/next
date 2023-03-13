@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { State } from './store'
 
 export interface User {
   id: string
@@ -8,13 +9,8 @@ export interface User {
   updatedAt: Date
 }
 
-export interface UserState {
-  user: User | null,
-  status: 'idle' | 'loading' | 'succeeded' | 'failed',
-  error: string | null
-}
-
-const initialState: UserState = { user: null, status: 'idle', error: null }
+const BASE_URL = process.env.BASE_URL
+const initialState: State = { user: null, status: 'idle', error: null }
 
 export const authUser = createAsyncThunk<
   User,
@@ -24,6 +20,7 @@ export const authUser = createAsyncThunk<
 (
   'session/login',
   async ({email, password}, { rejectWithValue }) => {
+    const url = '/api/auth'
     const options = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -31,7 +28,7 @@ export const authUser = createAsyncThunk<
     }
 
     try{
-      const response = await fetch('/api/auth', options)
+      const response = await fetch(url, options)
       const data = await response.json()
 
       return response.ok ? data : rejectWithValue(data)
@@ -43,11 +40,11 @@ export const authUser = createAsyncThunk<
 
 export const restoreUser = createAsyncThunk<
   User,
-  string,
+  void,
   { rejectValue: {message: string} }
 >(
   'session/restore',
-  async (id, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
       const response = await fetch('/api/auth')
       const user = await response.json()
@@ -59,49 +56,70 @@ export const restoreUser = createAsyncThunk<
   }
 )
 
+export const logoutUser = createAsyncThunk<
+  null,
+  void,
+  { rejectValue: {message: string} }
+>(
+  'session/logout',
+  async (_, { rejectWithValue }) => {
+    const options = { method: 'DELETE' }
+    try {
+      const response = await fetch('/api/auth', options)
+
+      return response.ok ? null : rejectWithValue({ message: 'Something went wrong' })
+    }catch(err: unknown){
+      return rejectWithValue({ message: 'Something went wrong' })
+    }
+  }
+)
+
 
 export const sessionSlice = createSlice({
   name: 'session',
   initialState,
-  reducers: {
-    logout: (state: UserState) => {
-      state.user = null
-      state.status = 'idle'
-      state.error = null
-    }
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(authUser.pending, (state) => {
+      .addCase(authUser.pending, (state: State) => {
         state.status = 'loading'
       })
-      .addCase(authUser.fulfilled, (state: UserState, action) => {
-        state.status = 'succeeded'
+      .addCase(authUser.fulfilled, (state: State, action) => {
+        state.status = 'idle'
         state.user = action.payload
         state.error = null
       })
-      .addCase(authUser.rejected, (state: UserState, action) => {
+      .addCase(authUser.rejected, (state: State, action) => {
         state.status = 'failed'
         state.user = null
         if(action.payload) state.error = action.payload.message
       })
 
     builder
-      .addCase(restoreUser.pending, (state: UserState) => {
+      .addCase(restoreUser.pending, (state: State) => {
         state.status = 'loading'
       })
-      .addCase(restoreUser.fulfilled, (state: UserState, action) => {
-        state.status = 'succeeded'
+      .addCase(restoreUser.fulfilled, (state: State, action) => {
+        state.status = 'idle'
         state.user = action.payload
         state.error = null
       })
-      .addCase(restoreUser.rejected, (state: UserState, action) => {
+      .addCase(restoreUser.rejected, (state: State, action) => {
         state.status = 'failed'
         state.user = null
+        if(action.payload) state.error = action.payload.message
+      })
+
+    builder
+      .addCase(logoutUser.fulfilled, (state: State) => {
+        state.status = 'idle'
+        state.user = null
+      })
+      .addCase(logoutUser.rejected, (state: State, action) => {
+        state.status = 'failed'
         if(action.payload) state.error = action.payload.message
       })
   }
 })
 
-export const { logout } = sessionSlice.actions
 export default sessionSlice.reducer

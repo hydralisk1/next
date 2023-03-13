@@ -1,22 +1,29 @@
 import Head from 'next/head'
-import { useState, FormEvent } from 'react'
+import { GetServerSideProps, NextPage } from 'next'
+import { connect } from 'react-redux'
+import { useState, useEffect, FormEvent } from 'react'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { User, authUser, logout } from '@/store/session'
-import { RootState } from '@/store/store'
+import { User, authUser, logoutUser, restoreUser } from '@/store/session'
+import { RootState, wrapper } from '@/store/store'
 // import Image from 'next/image'
 // import styles from '@/styles/Home.module.css'
 
-export default function Home() {
+const Home: NextPage<RootState> = () => {
   const dispatch = useAppDispatch()
   const user: User | null = useAppSelector((state: RootState) => state.session.user)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    dispatch(authUser({ email, password }))
+    await dispatch(authUser({ email, password }))
   }
+
+  useEffect(() => {
+    if(!user) (async () => {await dispatch(restoreUser())})()
+
+  }, [dispatch, user])
 
   return (
     <>
@@ -28,7 +35,7 @@ export default function Home() {
       {
         user ? (
           <div>
-            <button onClick={() => {dispatch(logout())}}>Logout</button>
+            <button onClick={() => {dispatch(logoutUser())}}>Logout</button>
           </div>
         ) : (
           <div>
@@ -51,3 +58,19 @@ export default function Home() {
     </>
   )
 }
+
+export const getServerSideProps: GetServerSideProps = wrapper.getServerSideProps(
+  (store) =>
+    async ({ req, res, ...etc }) => {
+      const user = store.getState().session.user
+      if(!user) {
+        const a = await store.dispatch(restoreUser())
+        console.log(a)
+      }
+
+      return {
+        props: {}
+      }
+})
+
+export default connect((state: RootState): RootState => state)(Home)

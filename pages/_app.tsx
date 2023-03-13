@@ -1,17 +1,22 @@
 // import '@/styles/globals.css'
+import { FC } from 'react'
 import type { AppProps } from 'next/app'
 import { Provider } from 'react-redux'
-import store from '@/store/store'
+import { wrapper } from '@/store/store'
 import { Inter } from 'next/font/google'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export default function App({ Component, pageProps }: AppProps) {
+const App: FC<AppProps> = ({ Component, ...rest }) => {
+  const {store, props} = wrapper.useWrappedStore(rest)
+
   return (
     <Provider store={store}>
       <main className={inter.className}>
-        <Component {...pageProps} />
+        <Component {...props.pageProps} />
       </main>
     </Provider>
   )
 }
+
+export default App
